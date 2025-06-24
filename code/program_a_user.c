@@ -1,3 +1,4 @@
+// program_a_user.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -111,7 +112,7 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
         if (fp) fflush(fp); // 强制刷新缓冲区
         char pid_str[17];
         snprintf(pid_str, sizeof(pid_str), "%u", pid);
-        execl("/home/michael/Desktop/dcx/code/program_b", "program_b", pid_str, (char *)NULL);
+        execl("/home/mz2/Desktop/dcx/code/program_b", "program_b", pid_str, (char *)NULL);
         fprintf(stderr, "execl 失败，/home/mz2/Desktop/dcx/code/program_b: %s\n", strerror(errno));
         _exit(1);
     } else {
