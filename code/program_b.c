@@ -33,9 +33,9 @@ int main(int argc, char *argv[]) {
     // 构造 K-Leb 命令
     char cmd[512];
     char log_path[256];
-    snprintf(log_path, sizeof(log_path), "/home/mz2/Desktop/dcx/tmp/hpc_pid_%d.csv", pid);
+    snprintf(log_path, sizeof(log_path), "../tmp/hpc_pid_%d.csv", pid);
     snprintf(cmd, sizeof(cmd), 
-             "sudo /home/mz2/Desktop/dcx/K-LEB-Intel-demo/ioctl_start -e BR_RET,BR_MISP_RET,LOAD,STORE -t 1 -o %s %d",
+             "sudo ../K-LEB-Intel-demo/ioctl_start -e BR_RET,BR_MISP_RET,LOAD,STORE -t 1 -o %s %d",
              log_path, pid);
 
     // 执行 K-Leb 命令
