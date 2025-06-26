@@ -18,7 +18,7 @@ struct perf_buffer *pb = NULL;
 static FILE *log_file = NULL;
 
 // PID 风暴检测参数
-#define EVENT_THRESHOLD 20
+#define EVENT_THRESHOLD 10
 #define TIME_WINDOW_NS 1000000L // 1ms（纳秒）
 #define PID_IGNORE_WINDOW_NS 5000000000L // 5秒（纳秒）
 static int event_count = 0;
@@ -189,7 +189,7 @@ int main() {
     if (clear_err) {
         fprintf(stderr, "清空 exclude_pids map 过程中发生错误\n");
     } else {
-        fprintf(stderr, "成功清空 exclude_pids map\n");
+        fprintf(stderr, "clear exclude_pids map\n");
     }
 
     // 将当前进程 PID 添加到 exclude_pids
