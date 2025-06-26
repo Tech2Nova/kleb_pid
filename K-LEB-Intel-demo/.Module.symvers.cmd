@@ -1,0 +1,1 @@
+savedcmd_/home/mz2/Desktop/dcx/K-LEB-Intel-demo/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/mz2/Desktop/dcx/K-LEB-Intel-demo/Module.symvers -T /home/mz2/Desktop/dcx/K-LEB-Intel-demo/modules.order -i Module.symvers -e 

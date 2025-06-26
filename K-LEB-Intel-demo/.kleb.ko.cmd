@@ -1,0 +1,1 @@
+savedcmd_/home/mz2/Desktop/dcx/K-LEB-Intel-demo/kleb.ko := ld -r -m elf_x86_64 -z noexecstack --build-id=sha1  -T scripts/module.lds -o /home/mz2/Desktop/dcx/K-LEB-Intel-demo/kleb.ko /home/mz2/Desktop/dcx/K-LEB-Intel-demo/kleb.o /home/mz2/Desktop/dcx/K-LEB-Intel-demo/kleb.mod.o
