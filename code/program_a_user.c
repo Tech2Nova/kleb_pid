@@ -132,21 +132,21 @@ int main() {
     int err;
 
     // 打开日志文件
-    log_file = fopen("./execve_log.txt", "w");
-    if (!log_file) {
-        fprintf(stderr, "打开日志文件失败: %s\n", strerror(errno));
-        return 1;
-    }
-    if (fprintf(log_file, "开始记录 execve 日志\n") < 0) {
-        fprintf(stderr, "写入初始日志失败: %s\n", strerror(errno));
-        fclose(log_file);
-        return 1;
-    }
-    if (fflush(log_file) != 0) {
-        fprintf(stderr, "刷新初始日志失败: %s\n", strerror(errno));
-        fclose(log_file);
-        return 1;
-    }
+    // log_file = fopen("./execve_log.txt", "w");
+    // if (!log_file) {
+    //     fprintf(stderr, "打开日志文件失败: %s\n", strerror(errno));
+    //     return 1;
+    // }
+    // if (fprintf(log_file, "开始记录 execve 日志\n") < 0) {
+    //     fprintf(stderr, "写入初始日志失败: %s\n", strerror(errno));
+    //     fclose(log_file);
+    //     return 1;
+    // }
+    // if (fflush(log_file) != 0) {
+    //     fprintf(stderr, "刷新初始日志失败: %s\n", strerror(errno));
+    //     fclose(log_file);
+    //     return 1;
+    // }
 
     // 提高资源限制
     struct rlimit rlim = {RLIM_INFINITY, RLIM_INFINITY};
