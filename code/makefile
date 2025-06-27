@@ -1,65 +1,69 @@
-# Makefile for program_a_bpf, program_a_user, and program_b
-
-# 编译器和工具
+# Compiler and tools
 CC = gcc
-BPF_CC = clang
+CLANG = clang
 BPFTOOL = bpftool
-LIBBPF = -lbpf
 
-# 编译标志
-CFLAGS = -Wall -O2 -g
-BPF_CFLAGS = -target bpf -Wall -O2 -g -D__KERNEL__ -D__BPF_TRACING__ -D__TARGET_ARCH_x86_64
-LDFLAGS = $(LIBBPF)
+# Source files
+MAIN_SRC = the_main.c
+COLLECT_SRC = collect.c
+RECEIVE_SRC = receive.c
+BPF_SRC = program_a_bpf.c
 
-# 输出文件
-PROGRAM_A_BPF_OBJ = program_a_bpf.o
-PROGRAM_A_BPF_SKEL = program_a_bpf.skel.h
-PROGRAM_A_USER = program_a_user
-PROGRAM_B = program_b
+# Header files
+HEADERS = collect.h common.h
 
-# 源文件和头文件
-PROGRAM_A_BPF_SRC = program_a_bpf.c
-PROGRAM_A_USER_SRC = program_a_user.c
-PROGRAM_B_SRC = program_b.c
-PROGRAM_A_HEADER = program_a.h
+# Object files
+MAIN_OBJ = $(MAIN_SRC:.c=.o)
+COLLECT_OBJ = $(COLLECT_SRC:.c=.o)
+RECEIVE_OBJ = $(RECEIVE_SRC:.c=.o)
+BPF_OBJ = $(BPF_SRC:.c=.o)
+SKEL_H = program_a_bpf.skel.h
 
-# 默认目标
-all: $(PROGRAM_A_USER) $(PROGRAM_B)
+# Output binary
+TARGET = the_main
 
-# 编译 eBPF 程序
-$(PROGRAM_A_BPF_OBJ): $(PROGRAM_A_BPF_SRC) $(PROGRAM_A_HEADER)
-	$(BPF_CC) $(BPF_CFLAGS) -I. -c $< -o $@
+# Check for pkg-config and set flags
+PKG_CONFIG := $(shell command -v pkg-config 2>/dev/null)
+ifdef PKG_CONFIG
+    CFLAGS = -g -O2 $(shell pkg-config --cflags libbpf)
+    LDFLAGS = $(shell pkg-config --libs libbpf) -lpthread
+else
+    # Fallback paths for libbpf (adjust these based on your system)
+    CFLAGS = -g -O2 -I/usr/include
+    LDFLAGS = -L/usr/lib/x86_64-linux-gnu -lbpf -lpthread
+endif
 
-# 生成 eBPF skeleton 文件
-$(PROGRAM_A_BPF_SKEL): $(PROGRAM_A_BPF_OBJ)
-	$(BPFTOOL) gen skeleton $< > $@
+# BPF compiler flags
+BPF_CFLAGS = -g -O2 -target bpf
 
-# 编译 program_a_user
-$(PROGRAM_A_USER): $(PROGRAM_A_USER_SRC) $(PROGRAM_A_BPF_SKEL) $(PROGRAM_A_HEADER)
-	$(CC) $(CFLAGS) -I. $< $(LDFLAGS) -o $@
+# Default target
+all: $(TARGET)
 
-# 编译 program_b
-$(PROGRAM_B): $(PROGRAM_B_SRC)
-	$(CC) $(CFLAGS) $< $(LDFLAGS) -o $@
+# Link the final binary
+$(TARGET): $(MAIN_OBJ) $(COLLECT_OBJ) $(RECEIVE_OBJ) $(SKEL_H)
+	$(CC) -o $@ $(MAIN_OBJ) $(COLLECT_OBJ) $(RECEIVE_OBJ) $(LDFLAGS)
 
-# 清理
+# Compile C source files
+$(MAIN_OBJ): $(MAIN_SRC) $(SKEL_H) $(HEADERS)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(RECEIVE_OBJ): $(RECEIVE_SRC) $(SKEL_H) $(HEADERS)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(COLLECT_OBJ): $(COLLECT_SRC) $(SKEL_H) $(HEADERS)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Generate BPF skeleton header
+$(SKEL_H): $(BPF_OBJ)
+	$(BPFTOOL) gen skeleton $(BPF_OBJ) > $@
+
+# Compile BPF program
+$(BPF_OBJ): $(BPF_SRC)
+	$(CLANG) $(BPF_CFLAGS) -c $< -o $@
+
+# Clean up generated files
 clean:
-	@rm -f $(PROGRAM_A_BPF_OBJ) $(PROGRAM_A_BPF_SKEL) $(PROGRAM_A_USER) $(PROGRAM_B)
+	rm -f $(TARGET) $(MAIN_OBJ) $(COLLECT_OBJ) $(RECEIVE_OBJ) $(BPF_OBJ) $(SKEL_H)
 
-# 运行 program_a_user（需要 root 权限）
-run: $(PROGRAM_A_USER) $(PROGRAM_B)
-	sudo ./$(PROGRAM_A_USER) 2> debug.log
-
-# 安装依赖（Ubuntu/Debian）
-install-deps:
-	sudo apt-get update
-	sudo apt-get install -y clang llvm libbpf-dev bpftool linux-tools-common linux-tools-$(shell uname -r) libelf-dev
-
-# 调试信息
-info:
-	@echo "Kernel version: $$(uname -r)"
-	@echo "bpftool version: $$($(BPFTOOL) version)"
-	@echo "libbpf version: $$(pkg-config --modversion libbpf)"
-	@echo "clang version: $$($(BPF_CC) --version)"
-
-.PHONY: all clean run install-deps info
+# Phony targets
+.PHONY: all clean
