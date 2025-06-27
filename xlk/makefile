@@ -1,51 +1,58 @@
-# Makefile for compiling BPF and user-space programs
-
+# Compiler and tools
 CC = gcc
 CLANG = clang
 BPFTOOL = bpftool
-CFLAGS = -g -Wall -O2
-BPF_CFLAGS = -g -Wall -O2 -target bpf -I/usr/include -I/usr/include/$(shell uname -m)-linux-gnu -I/usr/include/bpf
-LDFLAGS = -lbpf -pthread
 
-# Directories
-SRC_DIR = .
-BUILD_DIR = build
-BPF_OBJ = $(BUILD_DIR)/program_a_bpf.o
-BPF_SKEL = $(BUILD_DIR)/program_a_bpf.skel.h
-USER_OBJ = $(BUILD_DIR)/program_a_user.o
-PROG_B_OBJ = $(BUILD_DIR)/program_b.o
-TARGETS = $(BUILD_DIR)/program_a_user $(BUILD_DIR)/program_b
+# Source files
+MAIN_SRC = the_main.c
+COLLECT_SRC = collect.c
+BPF_SRC = program_a_bpf.c
 
-# Ensure build directory exists
-$(shell mkdir -p $(BUILD_DIR))
+# Object files
+MAIN_OBJ = $(MAIN_SRC:.c=.o)
+COLLECT_OBJ = $(COLLECT_SRC:.c=.o)
+BPF_OBJ = $(BPF_SRC:.c=.o)
+SKEL_H = program_a_bpf.skel.h
+
+# Output binary
+TARGET = the_main
+
+# Check for pkg-config and set flags
+PKG_CONFIG := $(shell command -v pkg-config 2>/dev/null)
+ifdef PKG_CONFIG
+    CFLAGS = -g -O2 $(shell pkg-config --cflags libbpf)
+    LDFLAGS = $(shell pkg-config --libs libbpf)
+else
+    # Fallback paths for libbpf (adjust these based on your system)
+    CFLAGS = -g -O2 -I/usr/include
+    LDFLAGS = -L/usr/lib/x86_64-linux-gnu -lbpf
+endif
+
+# BPF compiler flags
+BPF_CFLAGS = -g -O2 -target bpf
 
 # Default target
-all: $(TARGETS)
+all: $(TARGET)
 
-# Compile BPF program to object file
-$(BPF_OBJ): $(SRC_DIR)/program_a_bpf.c
-	$(CLANG) $(BPF_CFLAGS) -c $< -o $@
+# Link the final binary
+$(TARGET): $(MAIN_OBJ) $(COLLECT_OBJ) $(SKEL_H)
+	$(CC) -o $@ $(MAIN_OBJ) $(COLLECT_OBJ) $(LDFLAGS)
+
+# Compile C source files
+%.o: %.c $(SKEL_H)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Generate BPF skeleton header
-$(BPF_SKEL): $(BPF_OBJ)
-	$(BPFTOOL) gen skeleton $< > $@
+$(SKEL_H): $(BPF_OBJ)
+	$(BPFTOOL) gen skeleton $(BPF_OBJ) > $@
 
-# Compile program_a_user.c
-$(USER_OBJ): $(SRC_DIR)/program_a_user.c $(BPF_SKEL)
-	$(CC) $(CFLAGS) -I$(BUILD_DIR) -c $< -o $@
+# Compile BPF program
+$(BPF_OBJ): $(BPF_SRC)
+	$(CLANG) $(BPF_CFLAGS) -c $< -o $@
 
-# Link program_a_user
-$(BUILD_DIR)/program_a_user: $(USER_OBJ)
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
-
-# Compile and link program_b.c
-$(BUILD_DIR)/program_b: $(SRC_DIR)/program_b.c
-	$(CC) $(CFLAGS) -c $< -o $(PROG_B_OBJ)
-	$(CC) $(CFLAGS) $(PROG_B_OBJ) -o $@ $(LDFLAGS)
-
-# Clean build artifacts
+# Clean up generated files
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -f $(TARGET) $(MAIN_OBJ) $(COLLECT_OBJ) $(BPF_OBJ) $(SKEL_H)
 
 # Phony targets
 .PHONY: all clean
