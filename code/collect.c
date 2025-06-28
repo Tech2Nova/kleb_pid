@@ -62,15 +62,15 @@ struct perf_event_attr create_event_attr(int type, int config) {
     return attr;
 }
 
-void collect_perf_events(int target_pid, const char *events[4]) {
+void collect_perf_events(int target_pid, const char *events[4], int pipe_fd) {
     int fds[TOTAL_EVENTS];
     uint64_t values[TOTAL_EVENTS][TOTAL_SAMPLES] = {0};
     const char *used_names[TOTAL_EVENTS];
     int types[TOTAL_EVENTS], configs[TOTAL_EVENTS];
+    char buffer[1024]; // 用于格式化数据
 
     for (int i = 0; i < TOTAL_EVENTS; i++) {
         if (!events || !events[i]) {
-            // 使用默认事件
             types[i] = default_events[i].type;
             configs[i] = default_events[i].config;
             used_names[i] = default_events[i].name;
@@ -99,25 +99,32 @@ void collect_perf_events(int target_pid, const char *events[4]) {
             if (ret != sizeof(current_values[i])) {
                 fprintf(stderr, "Failed to read perf event %s for PID %d: %s\n",
                         used_names[i], target_pid, strerror(errno));
-                continue; // 继续处理其他事件
+                continue;
             }
-            if (sample > 0) { // 避免第一次采样时访问 values[i][-1]
+            if (sample > 0) {
                 values[i][sample] = current_values[i] - values[i][sample - 1];
             } else {
                 values[i][sample] = current_values[i];
             }
         }
 
+        // 将数据格式化为字符串并通过管道传递
         if ((sample + 1) % PRINT_EVERY == 0) {
             int start = sample + 1 - PRINT_EVERY;
-            printf("\n[PID: %d] Samples %d–%d:\n", target_pid, start, sample);
+            int len = snprintf(buffer, sizeof(buffer), "[PID: %d] Samples %d–%d:\n", target_pid, start, sample);
             for (int i = 0; i < TOTAL_EVENTS; i++) {
-                printf("Event: %-20s\n", used_names[i]);
+                len += snprintf(buffer + len, sizeof(buffer) - len, "Event: %-20s\n", used_names[i]);
                 for (int j = start; j <= sample; j++) {
-                    printf("  [%02d] %" PRIu64 "\t", j, values[i][j]);
+                    len += snprintf(buffer + len, sizeof(buffer) - len, "  [%02d] %" PRIu64 "\t", j, values[i][j]);
                 }
-                printf("\n");
+                len += snprintf(buffer + len, sizeof(buffer) - len, "\n");
             }
+            
+            ssize_t written = write(pipe_fd, buffer, len);
+	    if (written == -1) {
+	        fprintf(stderr, "Failed to write to pipe: %s\n", strerror(errno));
+	    }
+	    
         }
     }
 
