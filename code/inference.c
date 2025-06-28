@@ -3,11 +3,11 @@
 #include <math.h>
 #include <time.h>
 
-#define INPUT_DIM 120
+#define INPUT_DIM 40
 #define HIDDEN1_DIM 128
 #define HIDDEN2_DIM 64
 #define OUTPUT_DIM 2
-#define ROWS_PER_INFERENCE 30
+#define ROWS_PER_INFERENCE 10
 #define COLS_PER_ROW 4
 #define MAX_ROWS 90
 
@@ -138,18 +138,16 @@ void inference(const char* sample_path, const char* model_path) {
     double target_interval = 0.1; // 0.1秒间隔
 
     for (int batch = 0; batch < row_count / ROWS_PER_INFERENCE; batch++) {
-        // 提取30行数据（120维）
+        // 提取10行数据（40维）
         for (int i = 0; i < ROWS_PER_INFERENCE * COLS_PER_ROW; i++) {
             accumulated_data[i] = data[batch * ROWS_PER_INFERENCE * COLS_PER_ROW + i];
         }
 
         // 推理
-        double batch_start_time = get_time();
         float output[OUTPUT_DIM];
         forward(accumulated_data, output);
         int prediction = output[0] > output[1] ? 0 : 1;
         const char* label = prediction == 1 ? "恶意" : "良性";
-        double inference_time = get_time() - batch_start_time;
 
         // 输出结果
         printf("时间: %.1f秒, 预测结果: %s (0=良性, 1=恶意, 预测值=%d)\n",
@@ -173,6 +171,3 @@ int main() {
     inference(sample_path, model_path);
     return 0;
 }
-
-
-
