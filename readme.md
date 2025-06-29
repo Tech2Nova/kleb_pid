@@ -23,7 +23,7 @@
 
 ## 工作流程
 
-1. **eBPF 监控：**program_a_bpf.c 使用 tracepoint 跟踪 execve 系统调用，获取进程 PID 并通过 BPF_MAP_TYPE_PERF_EVENT_ARRAY输出到用户态。
+1. **eBPF 监控**：program_a_bpf.c 使用 tracepoint 跟踪 execve 系统调用，获取进程 PID 并通过 BPF_MAP_TYPE_PERF_EVENT_ARRAY输出到用户态。
 
    ```c
    SEC("tracepoint/syscalls/sys_enter_execve")
@@ -43,7 +43,7 @@
    fds[i] = syscall(__NR_perf_event_open, &attr, target_pid, -1, -1, 0);
    ```
    
-4. **数据接收与推理：**receive.c 从管道接收数据，存储到哈希表中，并使用 DQN 神经网络模型进行推理。模型包含三层全连接网络（输入 40，隐藏层 128 和 64，输出 2），使用 ReLU 激活函数。
+4. **数据接收与推理**：receive.c 从管道接收数据，存储到哈希表中，并使用 DQN 神经网络模型进行推理。模型包含三层全连接网络（输入 40，隐藏层 128 和 64，输出 2），使用 ReLU 激活函数。
 
    ```c
    void forward(float* input, float* output) {
@@ -60,7 +60,7 @@
 
 模型训练通过 `train.py` 脚本使用深度强化学习（DQN）实现，显著提高了模型在复杂环境下的泛化能力。训练过程如下：
 
-1. **数据加载：**从 dataset/benign/benign_vec 和 dataset/ransomware/ransomware_vec 加载 CSV 数据，每 10 行数据组成一个 40 维向量。
+1. **数据加载**：从 dataset/benign/benign_vec 和 dataset/ransomware/ransomware_vec 加载 CSV 数据，每 10 行数据组成一个 40 维向量。
 
    ```python
    def load_data(directory, label):
@@ -76,7 +76,7 @@
        return data, [label] * len(data)
    ```
 
-2. **DQN 智能体：**使用 PyTorch 实现 DQN 模型，包含三层全连接网络（40→128→64→2）。智能体通过 ε-贪心策略选择动作（良性或恶意），并利用经验回放优化模型。
+2. **DQN 智能体**：使用 PyTorch 实现 DQN 模型，包含三层全连接网络（40→128→64→2）。智能体通过 ε-贪心策略选择动作（良性或恶意），并利用经验回放优化模型。
 
    ```python
    class DQN(nn.Module):
@@ -87,7 +87,7 @@
            self.fc3 = nn.Linear(64, output_dim)
    ```
 
-3. **训练与保存：**训练 8000 回合，保存模型权重到 model.pth（PyTorch 格式）和 model_weights.bin（二进制格式，供 C 程序推理使用）。
+3. **训练与保存**：训练 8000 回合，保存模型权重到 model.pth（PyTorch 格式）和 model_weights.bin（二进制格式，供 C 程序推理使用）。
 
    ```python
    torch.save(agent.policy_net.state_dict(), MODEL_PATH)
