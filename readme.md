@@ -23,7 +23,7 @@
 
 ## 工作流程
 
-1. eBPF 监控：program_a_bpf.c 使用 tracepoint 跟踪 execve 系统调用，获取进程 PID 并通过 BPF_MAP_TYPE_PERF_EVENT_ARRAY输出到用户态。
+1. **eBPF 监控：**program_a_bpf.c 使用 tracepoint 跟踪 execve 系统调用，获取进程 PID 并通过 BPF_MAP_TYPE_PERF_EVENT_ARRAY输出到用户态。
 
    ```c
    SEC("tracepoint/syscalls/sys_enter_execve")
@@ -36,16 +36,14 @@
 
 2. **主程序初始化**：`the_main.c` 加载 eBPF 程序，设置信号处理，创建性能事件缓冲区，并启动接收线程。
 
-3. 性能数据采集
-
-   ：collect.c 使用 Linux perf_event_open 系统调用收集目标进程的性能数据，每 10 次采样通过管道发送格式化数据。
+3. **性能数据采集**：collect.c 使用 Linux perf_event_open 系统调用收集目标进程的性能数据，每 10 次采样通过管道发送格式化数据。
 
    ```c
    struct perf_event_attr attr = create_event_attr(types[i], configs[i]);
    fds[i] = syscall(__NR_perf_event_open, &attr, target_pid, -1, -1, 0);
    ```
-
-4. 数据接收与推理：receive.c 从管道接收数据，存储到哈希表中，并使用 DQN 神经网络模型进行推理。模型包含三层全连接网络（输入 40，隐藏层 128 和 64，输出 2），使用 ReLU 激活函数。
+   
+4. **数据接收与推理：**receive.c 从管道接收数据，存储到哈希表中，并使用 DQN 神经网络模型进行推理。模型包含三层全连接网络（输入 40，隐藏层 128 和 64，输出 2），使用 ReLU 激活函数。
 
    ```c
    void forward(float* input, float* output) {
@@ -62,7 +60,7 @@
 
 模型训练通过 `train.py` 脚本使用深度强化学习（DQN）实现，显著提高了模型在复杂环境下的泛化能力。训练过程如下：
 
-1. 数据加载：从 dataset/benign/benign_vec 和 dataset/ransomware/ransomware_vec 加载 CSV 数据，每 10 行数据组成一个 40 维向量。
+1. **数据加载：**从 dataset/benign/benign_vec 和 dataset/ransomware/ransomware_vec 加载 CSV 数据，每 10 行数据组成一个 40 维向量。
 
    ```python
    def load_data(directory, label):
@@ -78,7 +76,7 @@
        return data, [label] * len(data)
    ```
 
-2. DQN 智能体：使用 PyTorch 实现 DQN 模型，包含三层全连接网络（40→128→64→2）。智能体通过 ε-贪心策略选择动作（良性或恶意），并利用经验回放优化模型。
+2. **DQN 智能体：**使用 PyTorch 实现 DQN 模型，包含三层全连接网络（40→128→64→2）。智能体通过 ε-贪心策略选择动作（良性或恶意），并利用经验回放优化模型。
 
    ```python
    class DQN(nn.Module):
@@ -89,7 +87,7 @@
            self.fc3 = nn.Linear(64, output_dim)
    ```
 
-3. 训练与保存：训练 8000 回合，保存模型权重到 model.pth（PyTorch 格式）和 model_weights.bin（二进制格式，供 C 程序推理使用）。
+3. **训练与保存：**训练 8000 回合，保存模型权重到 model.pth（PyTorch 格式）和 model_weights.bin（二进制格式，供 C 程序推理使用）。
 
    ```python
    torch.save(agent.policy_net.state_dict(), MODEL_PATH)
@@ -128,6 +126,8 @@
 
    使用 makefile 自动编译 eBPF 程序和用户态程序，生成可执行文件 the_main。
 
+   
+
 3. 运行程序：
 
    ```bash
@@ -135,6 +135,8 @@
    ```
 
    需要 sudo 权限以加载 eBPF 程序和访问性能计数器。
+
+   
 
 4. 清理：
 
