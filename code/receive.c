@@ -174,12 +174,12 @@ static void cleanup_old_data() {
     }
 }
 
-// 添加数据到数组并进行推理
 static int add_data_to_pid(uint32_t pid, const char *buffer, size_t len) {
     struct pid_data *entry = get_pid_data(pid);
     if (!entry)
         return -1;
 
+    // 动态扩展数据数组
     if (entry->data_count >= entry->data_capacity) {
         entry->data_capacity *= 2;
         char **new_data = realloc(entry->data, entry->data_capacity * sizeof(char *));
@@ -190,6 +190,7 @@ static int add_data_to_pid(uint32_t pid, const char *buffer, size_t len) {
         entry->data = new_data;
     }
 
+    // 存储新数据
     entry->data[entry->data_count] = strndup(buffer, len);
     if (!entry->data[entry->data_count]) {
         perror("strndup");
@@ -199,49 +200,48 @@ static int add_data_to_pid(uint32_t pid, const char *buffer, size_t len) {
     entry->data_count++;
     entry->timestamp = time(NULL);
 
-    // 每收到10的倍数行数据进行一次推理
-    if (entry->data_count % ROWS_PER_INFERENCE == 0 && entry->data_count <= MAX_ROWS) {
-        float accumulated_data[INPUT_DIM];
-        int valid_rows = 0;
+    // 每次接收到数据时进行推理
+    float accumulated_data[INPUT_DIM] = {0}; // 初始化为 0
+    size_t valid_values = 0;
 
-        // 使用所有累积的数据，最多90行，每次取最后10行
-        size_t start_idx = entry->data_count > ROWS_PER_INFERENCE ? 
-                           entry->data_count - ROWS_PER_INFERENCE : 0;
-        for (size_t i = start_idx; i < entry->data_count && valid_rows < ROWS_PER_INFERENCE; i++) {
-            char *line = entry->data[i];
-            float values[COLS_PER_ROW];
-            char *token = strtok(line, "\n");
-            int col_idx = 0;
+    // 使用所有累积的数据，最多 MAX_ROWS 行
+    size_t start_idx = entry->data_count > MAX_ROWS ? entry->data_count - MAX_ROWS : 0;
+    for (size_t i = start_idx; i < entry->data_count && valid_values < INPUT_DIM; i++) {
+        char *line = entry->data[i];
+        char *token = strtok(line, "\n");
+        int col_idx = 0;
+        float values[COLS_PER_ROW];
 
-            // 解析每行中的4个事件值
-            while (token && col_idx < COLS_PER_ROW) {
-                if (sscanf(token, "  [%*d] %f\t", &values[col_idx]) == 1) {
-                    col_idx++;
-                }
-                token = strtok(NULL, "\n");
-            }
-
-            if (col_idx == COLS_PER_ROW) {
-                for (int j = 0; j < COLS_PER_ROW; j++) {
-                    accumulated_data[valid_rows * COLS_PER_ROW + j] = values[j];
-                }
-                valid_rows++;
-            }
+        // 跳过 PID 行
+        if (strstr(line, "[PID:") != NULL) {
+            continue;
         }
 
-        if (valid_rows == ROWS_PER_INFERENCE) {
-            float output[OUTPUT_DIM];
-            forward(accumulated_data, output);
-            int prediction = output[0] > output[1] ? 0 : 1;
-            const char* label = prediction == 1 ? "恶意" : "良性";
-            printf("PID %u 推理结果 (使用 %zu 行数据): %s (0=良性, 1=恶意, 预测值=%d)\n", 
-                   pid, entry->data_count, label, prediction);
+        // 解析每行中的值
+        while (token && col_idx < COLS_PER_ROW && valid_values < INPUT_DIM) {
+            if (sscanf(token, "  [%*d] %f\t", &values[col_idx]) == 1) {
+                accumulated_data[valid_values++] = values[col_idx];
+                col_idx++;
+            }
+            token = strtok(NULL, "\n");
         }
     }
 
+    // 如果数据不足 INPUT_DIM，填充 0
+    while (valid_values < INPUT_DIM) {
+        accumulated_data[valid_values++] = 0;
+    }
+
+    // 执行推理
+    float output[OUTPUT_DIM];
+    forward(accumulated_data, output);
+    int prediction = output[0] > output[1] ? 0 : 1;
+    const char* label = prediction == 1 ? "恶意" : "良性";
+    printf("PID %u 推理结果 (第 %zu 次接收): %s (0=良性, 1=恶意, 预测值=%d)\n", 
+           pid, entry->data_count, label, prediction);
+
     return 0;
 }
-
 // 释放所有数据
 static void cleanup_all_data() {
     for (int i = 0; i < HASH_SIZE; i++) {
